@@ -38,7 +38,7 @@ func location(version string) string {
 
 func Download(store, version string, Message func(string, ...any), Fatal func(any)) {
 	url := location(version)
-	Message("downloading RemixIcon files from %s", url)
+	Message("downloading icon files from %s", url)
 
 	client := &http.Client{}
 	response, err := client.Get(url)

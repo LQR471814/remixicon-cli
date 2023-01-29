@@ -1,2 +1,4 @@
 .remixicon
-remixicon-cli
+icon-cli
+*.bin
+*.log
