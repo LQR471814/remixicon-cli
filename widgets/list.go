@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"icon-cli/common"
 	"image"
+	"log"
 	"sync"
 
 	"github.com/mum4k/termdash/cell"
@@ -17,11 +18,11 @@ import (
 )
 
 func NumberPrefix(id int) string {
-	return fmt.Sprintf(" %d. ", id)
+	return fmt.Sprintf(" %d. ", id+1)
 }
 
 func DotPrefix(_ int) string {
-	return " • "
+	return " •"
 }
 
 type ListProps struct {
@@ -69,6 +70,10 @@ func (l *List) SetProps(transform func(ListProps) ListProps) {
 		ss.Rows = len(l.props.Rows)
 		return ss
 	})
+	l.props.Hovered = 0
+	if l.OnHover != nil {
+		l.OnHover(0)
+	}
 }
 
 func (l *List) scrollBy(delta int) {
@@ -108,6 +113,7 @@ func (l *List) Draw(cvs *canvas.Canvas, meta *widgetapi.Meta) error {
 		return state
 	})
 	start, end := l.scroll.Visible()
+	log.Println(start, end, l.props.Rows)
 	for i, row := range l.props.Rows[start:end] {
 		id := i + start
 

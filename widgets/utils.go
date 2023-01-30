@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"icon-cli/common"
 	"image"
 	"math"
 	"sync"
@@ -35,13 +36,14 @@ func (m *ScrollManager) Update(transform func(ScrollState) ScrollState) {
 	defer m.lock.Unlock()
 	m.lock.Lock()
 	m.state = transform(m.state)
-	h := 0
-	if m.state.Canvas != nil {
-		h = m.state.Canvas.Size().Y
+	if m.state.Canvas == nil {
+		return
 	}
+	h := m.state.Canvas.Size().Y
 	if m.state.ScrollTop+h >= m.state.Rows {
 		m.state.ScrollTop = m.state.Rows - m.state.Canvas.Size().Y
-	} else if m.state.ScrollTop < 0 {
+	}
+	if m.state.ScrollTop < 0 {
 		m.state.ScrollTop = 0
 	}
 }
@@ -54,8 +56,8 @@ func (m *ScrollManager) ScrollBy(delta int) {
 }
 
 func (m *ScrollManager) Visible() (int, int) {
-	start := m.state.ScrollTop
-	end := m.state.ScrollTop + m.state.Canvas.Size().Y
+	start := common.Clamp(m.state.ScrollTop, 0, m.state.Rows)
+	end := common.Clamp(m.state.ScrollTop+m.state.Canvas.Size().Y, 0, m.state.Rows)
 	return start, end
 }
 

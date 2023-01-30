@@ -8,16 +8,19 @@ import (
 	"icon-cli/widgets"
 	"image"
 	"log"
-	"strings"
 
 	_ "image/jpeg"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mum4k/termdash"
+	"github.com/mum4k/termdash/cell"
 	"github.com/mum4k/termdash/container"
+	"github.com/mum4k/termdash/keyboard"
 	"github.com/mum4k/termdash/linestyle"
 	"github.com/mum4k/termdash/terminal/tcell"
 	"github.com/mum4k/termdash/terminal/terminalapi"
 	"github.com/mum4k/termdash/widgetapi"
+	"github.com/mum4k/termdash/widgets/textinput"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/srwiley/oksvg"
@@ -47,6 +50,11 @@ func renderSVG(id string) image.Image {
 	return rgba
 }
 
+const (
+	FOCUS_SEARCH container.FocusGroup = iota
+	FOCUS_LIST
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "icon",
 	Short: "an SVG icon cli",
@@ -68,20 +76,33 @@ var rootCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		iconIndexIds := make([]string, len(iconLibrary.Data.Index))
 		list := widgets.NewList()
-		list.SetProps(func(p widgets.ListProps) widgets.ListProps {
-			p.KeyboardScope = widgetapi.KeyScopeGlobal
-			p.MouseScope = widgetapi.MouseScopeGlobal
-			i := 0
-			for k := range iconLibrary.Data.Index {
-				name := strings.Join(strings.Split(k, "-"), " ")
-				p.Rows = append(p.Rows, name)
-				iconIndexIds[i] = k
-				i++
-			}
-			return p
+		list.SetProps(func(lp widgets.ListProps) widgets.ListProps {
+			lp.KeyboardScope = widgetapi.KeyScopeGlobal
+			lp.MouseScope = widgetapi.MouseScopeGlobal
+			return lp
 		})
+		list.Prefix = widgets.NumberPrefix
+
+		indexIds := make([]string, len(iconLibrary.Data.Index))
+		i := 0
+		for k := range iconLibrary.Data.Index {
+			indexIds[i] = k
+			i++
+		}
+
+		var iconIndexIds []string
+
+		// * if nil, will use the full index
+		updateListItems := func(items []string) {
+			iconIndexIds = items
+			list.SetProps(func(lp widgets.ListProps) widgets.ListProps {
+				lp.Rows = items
+				return lp
+			})
+		}
+
+		updateListItems(indexIds)
 
 		img.SetProps(func(ip widgets.ImageProps) widgets.ImageProps {
 			ip.Image = renderSVG(iconIndexIds[0])
@@ -96,17 +117,53 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
+		input, err := textinput.New(
+			textinput.FillColor(cell.ColorBlack),
+			textinput.PlaceHolder("Search"),
+			textinput.PlaceHolderColor(cell.ColorLime),
+			textinput.OnChange(func(data string) {
+				if data == "" {
+					updateListItems(indexIds)
+					return
+				}
+				ranks := fuzzy.RankFindFold(data, indexIds)
+				if ranks.Len() > 0 {
+					results := make([]string, ranks.Len())
+					for i, r := range ranks {
+						results[i] = r.Target
+					}
+					updateListItems(results)
+				}
+			}),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		root, err := container.New(
 			term,
+			// container.KeyFocusNext(keyboard.KeyTab),
 			container.Border(linestyle.None),
 			container.SplitVertical(
 				container.Left(
 					container.Border(linestyle.Round),
+					container.KeyFocusSkip(),
 					container.PlaceWidget(img),
 				),
 				container.Right(
 					container.Border(linestyle.Round),
-					container.PlaceWidget(list),
+					container.SplitHorizontal(
+						container.Top(
+							container.PaddingLeft(1),
+							container.PaddingRight(1),
+							container.Focused(),
+							container.PlaceWidget(input),
+						),
+						container.Bottom(
+							container.PlaceWidget(list),
+						),
+						container.SplitFixed(1),
+					),
 				),
 			),
 		)
@@ -116,11 +173,17 @@ var rootCmd = &cobra.Command{
 
 		ctx, cancel := context.WithCancel(context.Background())
 		handler := termdash.KeyboardSubscriber(func(k *terminalapi.Keyboard) {
-			if k.Key == 'q' || k.Key == 'Q' {
+			switch k.Key {
+			case keyboard.KeyCtrlX:
 				cancel()
+			case keyboard.KeyEsc:
+				input.ReadAndClear()
 			}
 		})
-		err = termdash.Run(ctx, term, root, handler)
+		errorHandler := termdash.ErrorHandler(func(err error) {
+			log.Println(err)
+		})
+		err = termdash.Run(ctx, term, root, handler, errorHandler)
 		if err != nil {
 			log.Fatal(err)
 		}

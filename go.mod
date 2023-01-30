@@ -6,6 +6,7 @@ require (
 	github.com/carlmjohnson/requests v0.22.3
 	github.com/glibsm/dots v0.1.0
 	github.com/iancoleman/strcase v0.2.0
+	github.com/lithammer/fuzzysearch v1.1.5
 	github.com/mum4k/termdash v0.17.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/sekimura/go-normalize-url v0.0.0-20150113070447-c2b8a31b72ab
@@ -32,3 +33,5 @@ require (
 	golang.org/x/text v0.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/mum4k/termdash => /home/lqr471814/go/src/termdash

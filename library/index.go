@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,17 +23,21 @@ import (
 )
 
 type Library struct {
-	Index      map[KebabCase][]byte
+	Index      map[TextCase][]byte
 	Version    string
 	LastUpdate time.Time
 }
 
-// a string in KebabCase
-type KebabCase = string
+// a string with lowercase segments separated by spaces
+type TextCase = string
+
+func ToTextCase(title string) TextCase {
+	return strings.ReplaceAll(strcase.ToKebab(title), "-", " ")
+}
 
 type Provider interface {
 	Latest() (string, error)
-	Pull(string) (map[KebabCase][]byte, error)
+	Pull(string) (map[TextCase][]byte, error)
 }
 
 type HTTP struct {
@@ -59,7 +64,7 @@ func (h *HTTP) Latest() (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-func (h *HTTP) Pull(_ string) (map[KebabCase][]byte, error) {
+func (h *HTTP) Pull(_ string) (map[TextCase][]byte, error) {
 	return GenerateFromTarGz(h.Url)
 }
 
@@ -101,7 +106,7 @@ func (g Github) Latest() (string, error) {
 	return splitPath[len(splitPath)-1], nil
 }
 
-func (g Github) Pull(tag string) (map[KebabCase][]byte, error) {
+func (g Github) Pull(tag string) (map[TextCase][]byte, error) {
 	return GenerateFromTarGz(&url.URL{
 		Scheme: "https",
 		Host:   "github.com",
@@ -109,7 +114,7 @@ func (g Github) Pull(tag string) (map[KebabCase][]byte, error) {
 	})
 }
 
-func GenerateFromTarGz(loc *url.URL) (map[KebabCase][]byte, error) {
+func GenerateFromTarGz(loc *url.URL) (map[TextCase][]byte, error) {
 	buffer := bytes.NewBuffer(nil)
 
 	err := requests.
@@ -129,7 +134,7 @@ func GenerateFromTarGz(loc *url.URL) (map[KebabCase][]byte, error) {
 		return nil, err
 	}
 
-	lib := map[KebabCase][]byte{}
+	lib := map[TextCase][]byte{}
 
 	tarReader := tar.NewReader(bytes.NewBuffer(uncompressed))
 	for {
@@ -149,7 +154,7 @@ func GenerateFromTarGz(loc *url.URL) (map[KebabCase][]byte, error) {
 
 			name := NewPath(header.Name).Basename()
 			name, _ = SplitExtension(name)
-			name = strcase.ToKebab(name)
+			name = ToTextCase(name)
 			if name == "" {
 				break
 			}
