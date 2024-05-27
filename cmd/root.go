@@ -93,7 +93,6 @@ var rootCmd = &cobra.Command{
 
 		var iconIndexIds []string
 
-		// * if nil, will use the full index
 		updateListItems := func(items []string) {
 			iconIndexIds = items
 			list.SetProps(func(lp widgets.ListProps) widgets.ListProps {
